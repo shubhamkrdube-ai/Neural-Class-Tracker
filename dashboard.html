@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard · Neural Class Tracker</title>
+    <link rel="icon" href="./assets/images/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: {
+            fontFamily: { sans: ['Manrope', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+            colors: { night: '#050816', glow: '#22D3EE' }
+        } } };
+    </script>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./assets/js/config.js"></script>
+    <script src="./assets/js/clerk-init.js"></script>
+</head>
+<body class="app auth-pending bg-night font-sans text-white antialiased" data-page="dashboard">
+    <!-- header + sidebar are inserted here by app.js -->
+    <main id="main" class="p-5 sm:p-8">
+
+        <!-- Welcome -->
+        <section class="panel p-6 sm:p-9" aria-labelledby="welcome">
+            <div class="grid items-center gap-6 lg:grid-cols-[1.1fr_auto]">
+                <div>
+                    <h1 id="welcome" class="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-[2.6rem]">Welcome back, <span id="first-name" class="text-grad-cyan-violet">there</span>!</h1>
+                    <p class="mt-4 max-w-md text-lg leading-snug text-slate-200 sm:text-xl">Log your class details below to track your progress. Keep going, you’re doing great!</p>
+                    <p class="mt-6 inline-flex items-center gap-3 rounded-2xl border border-sky-400/40 bg-sky-400/5 px-5 py-3 text-slate-100">
+                        <span class="text-cyan-300"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>
+                        Small steps lead to big results!
+                    </p>
+                </div>
+                <div class="hidden items-center gap-6 lg:flex" aria-hidden="true">
+                    <svg viewBox="0 0 320 240" class="h-52 w-72 flex-none">
+                        <defs><linearGradient id="orb" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+                        <ellipse cx="160" cy="145" rx="145" ry="55" fill="none" stroke="url(#orb)" stroke-width="2" opacity=".8" transform="rotate(-6 160 145)"/>
+                        <g><path d="M90 153 160 188v22L90 175z" fill="#0891b2"/><path d="M160 188 230 153v22l-70 35z" fill="#22d3ee"/></g>
+                        <g transform="translate(8 -22)"><path d="M90 153 160 188v22L90 175z" fill="#2563eb"/><path d="M160 188 230 153v22l-70 35z" fill="#3b82f6"/></g>
+                        <g transform="translate(-4 -44)"><path d="M90 153 160 188v22L90 175z" fill="#6d28d9"/><path d="M160 188 230 153v22l-70 35z" fill="#8b5cf6"/><path d="M160 118 230 153 160 188 90 153z" fill="#a78bfa"/></g>
+                        <g transform="translate(126 20) rotate(-8)"><rect width="62" height="84" rx="8" fill="#2563eb"/><rect x="6" y="10" width="50" height="68" rx="4" fill="#0b1b4a"/><rect x="20" y="-4" width="22" height="12" rx="4" fill="#38bdf8"/><path d="M14 28l4 4 7-8M14 50l4 4 7-8M32 28h18M32 50h18M14 68h36" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>
+                        <circle cx="285" cy="62" r="4" fill="#a78bfa"/><circle cx="38" cy="150" r="3" fill="#22d3ee"/>
+                    </svg>
+                    <blockquote class="max-w-[180px]">
+                        <p class="text-xl italic leading-snug text-slate-200">“Better tracking today, stronger tomorrow.”</p>
+                        <span class="mt-4 block h-1 w-24 rounded-full bg-gradient-to-r from-violet-500 to-transparent"></span>
+                    </blockquote>
+                </div>
+            </div>
+        </section>
+
+        <!-- Add new class -->
+        <section class="panel mt-6 p-6 sm:p-8" aria-labelledby="add-title">
+            <div class="flex items-center gap-4">
+                <span class="tile" style="--c:#22d3ee" aria-hidden="true"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M12 8v8M8 12h8"/></svg></span>
+                <div><h2 id="add-title" class="text-2xl font-bold">Add New Class</h2><p class="text-slate-300">Fill in the details below and save your progress.</p></div>
+            </div>
+            <hr class="my-6 border-white/10">
+
+            <form id="class-form" novalidate class="grid gap-5 lg:grid-cols-[1.3fr_1fr_1.1fr]">
+                <div>
+                    <label for="cname" class="lbl">Class Name <span class="text-red-400">*</span></label>
+                    <div id="f-name" class="field mt-2"><svg class="h-7 w-7 flex-none text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 4 10 5-10 5L2 9z"/><path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5"/></svg><input id="cname" name="cname" type="text" maxlength="60" placeholder="e.g. Mathematics" autocomplete="off"></div>
+                    <p id="err-name" class="err" role="alert"></p>
+                </div>
+                <div>
+                    <label for="cdate" class="lbl">Date <span class="text-red-400">*</span></label>
+                    <div id="f-date" class="field mt-2"><svg class="h-6 w-6 flex-none text-slate-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg><input id="cdate" name="cdate" type="date"></div>
+                    <p id="err-date" class="err" role="alert"></p>
+                </div>
+                <fieldset>
+                    <legend class="lbl">Status <span class="text-red-400">*</span></legend>
+                    <div class="mt-2 grid grid-cols-2 gap-3">
+                        <label class="seg"><input type="radio" name="status" value="completed" class="sr-only" checked><span class="on-green"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Completed</span></label>
+                        <label class="seg"><input type="radio" name="status" value="notcompleted" class="sr-only"><span class="on-amber"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Not Completed</span></label>
+                    </div>
+                    <p class="err"></p>
+                </fieldset>
+                <button type="submit" class="btn-gradient inline-flex h-16 items-center justify-center gap-3 rounded-2xl text-xl font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 lg:col-span-3">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5h11l3.5 3.5V20.5H5z"/><path d="M8 3.5v5h7v-5M8 20.5v-7h8v7"/></svg>Save Class
+                </button>
+            </form>
+        </section>
+
+        <!-- Benefits strip -->
+        <section class="panel mt-6 grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0" aria-label="Why track classes">
+            <div class="feat-cell flex items-center gap-4 lg:px-5">
+                <span class="tile" style="--c:#22d3ee" aria-hidden="true"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span>
+                <div><h3 class="font-bold">Track Progress</h3><p class="text-slate-300">Add your classes daily.</p></div>
+            </div>
+            <div class="feat-cell flex items-center gap-4 lg:px-5">
+                <span class="tile" style="--c:#3b82f6" aria-hidden="true"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V12M9 20V8M14 20v-6M19 20V5"/></svg></span>
+                <div><h3 class="font-bold">Stay Organized</h3><p class="text-slate-300">Keep all your data safe.</p></div>
+            </div>
+            <div class="feat-cell flex items-center gap-4 lg:px-5">
+                <span class="tile" style="--c:#6366f1" aria-hidden="true"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4.5-6 4.5z"/></svg></span>
+                <div><h3 class="font-bold">Never Miss Out</h3><p class="text-slate-300">Save and revisit anytime.</p></div>
+            </div>
+            <div class="feat-cell flex items-center gap-4 lg:px-5">
+                <span class="tile" style="--c:#f59e0b" aria-hidden="true"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></span>
+                <div><h3 class="font-bold">Achieve More</h3><p class="text-slate-300">Small steps, big results.</p></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+        NCT.appReady.then((ctx) => {
+            if (!ctx) return;
+            const { user, store, refresh } = ctx;
+            const $ = (s) => document.querySelector(s);
+            $('#first-name').textContent = user.firstName || user.fullName || 'there';
+
+            const form = $('#class-form');
+            const setErr = (id, msg) => { $('#err-' + id).textContent = msg; $('#f-' + id).classList.toggle('bad', Boolean(msg)); };
+            ['name', 'date'].forEach((id) => form.querySelector('#c' + id).addEventListener('input', () => setErr(id, '')));
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = form.elements.cname.value.trim();
+                const date = form.elements.cdate.value;
+                const status = form.elements.status.value;
+                setErr('name', name ? '' : 'Enter the class name.');
+                setErr('date', date ? '' : 'Pick a date.');
+                if (!name || !date) return;
+
+                if (!store.add({ name, date, status })) return;
+                form.reset();
+                form.elements.cname.focus();
+                refresh();
+                NCT.toast('Class saved!', { label: 'View saved', href: NCT.PAGES.saved });
+            });
+        });
+    </script>
+</body>
+</html>

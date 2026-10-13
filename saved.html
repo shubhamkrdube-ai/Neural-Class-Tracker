@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Classes · Neural Class Tracker</title>
+    <link rel="icon" href="./assets/images/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: {
+            fontFamily: { sans: ['Manrope', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+            colors: { night: '#050816', glow: '#22D3EE' }
+        } } };
+    </script>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./assets/js/config.js"></script>
+    <script src="./assets/js/clerk-init.js"></script>
+</head>
+<body class="app auth-pending bg-night font-sans text-white antialiased" data-page="saved">
+    <!-- header + sidebar are inserted here by app.js -->
+    <main id="main" class="p-5 sm:p-8">
+
+        <section class="panel p-6 sm:p-7" aria-labelledby="saved-title">
+            <div class="flex flex-wrap items-center justify-between gap-5">
+                <div class="flex items-center gap-5">
+                    <span class="text-cyan-300" aria-hidden="true"><svg class="h-12 w-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4.5-6 4.5z"/></svg></span>
+                    <div>
+                        <h1 id="saved-title" class="text-3xl font-bold tracking-tight">Saved Classes</h1>
+                        <p class="mt-1 text-slate-300">View and manage all your saved class entries. Your progress is safely stored here.</p>
+                    </div>
+                </div>
+                <div id="filters" class="flex flex-wrap gap-3" role="group" aria-label="Filter classes"></div>
+            </div>
+        </section>
+
+        <section class="panel mt-6 p-4 sm:p-6" aria-label="Saved classes list">
+            <div class="thead trow" aria-hidden="true"><span>Class / Subject</span><span>Date</span><span>Status</span><span>Actions</span></div>
+            <ul id="rows"></ul>
+
+            <div id="empty" class="px-4 py-14 text-center" hidden>
+                <p id="empty-title" class="text-2xl font-bold"></p>
+                <p id="empty-text" class="mx-auto mt-2 max-w-md text-slate-300"></p>
+                <a id="empty-cta" href="./dashboard.html" class="btn-gradient mt-6 inline-flex h-14 items-center rounded-2xl px-8 text-lg font-semibold text-white">Add a class</a>
+            </div>
+
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5">
+                <p id="showing" class="text-slate-300"></p>
+                <nav id="pager" class="flex flex-wrap gap-2" aria-label="Pagination"></nav>
+            </div>
+        </section>
+    </main>
+
+    <!-- View / edit dialog -->
+    <dialog id="dlg" class="nct-dialog" aria-labelledby="dlg-title">
+        <form id="dlg-form" novalidate>
+            <h2 id="dlg-title" class="text-2xl font-bold"></h2>
+            <div class="mt-6">
+                <label for="d-name" class="lbl">Class Name</label>
+                <div id="d-f-name" class="field mt-2"><input id="d-name" type="text" maxlength="60" autocomplete="off"></div>
+                <p id="d-err-name" class="err" role="alert"></p>
+            </div>
+            <div class="mt-2">
+                <label for="d-date" class="lbl">Date</label>
+                <div id="d-f-date" class="field mt-2"><input id="d-date" type="date"></div>
+                <p id="d-err-date" class="err" role="alert"></p>
+            </div>
+            <fieldset class="mt-2">
+                <legend class="lbl">Status</legend>
+                <div class="mt-2 grid grid-cols-2 gap-3">
+                    <label class="seg"><input type="radio" name="d-status" value="completed" class="sr-only"><span class="on-green">Completed</span></label>
+                    <label class="seg"><input type="radio" name="d-status" value="notcompleted" class="sr-only"><span class="on-amber">Not Completed</span></label>
+                </div>
+            </fieldset>
+            <div class="mt-7 flex justify-end gap-3">
+                <button type="button" id="d-close" class="btn-outline h-12 rounded-xl px-6 font-semibold">Close</button>
+                <button type="submit" id="d-save" class="btn-gradient h-12 rounded-xl px-6 font-semibold text-white">Save changes</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+        NCT.appReady.then((ctx) => {
+            if (!ctx) return;
+            const { store, refresh } = ctx, N = NCT, esc = N.esc, $ = (s) => document.querySelector(s);
+            const PER = 6;
+            const qs = new URLSearchParams(location.search);
+            const state = { filter: ['completed', 'notcompleted'].includes(qs.get('filter')) ? qs.get('filter') : 'all', q: (qs.get('q') || '').trim(), page: 1 };
+
+            /* dates */
+            const parse = (d) => { const [y, m, dd] = d.split('-').map(Number); return new Date(y, m - 1, dd); };
+            const fmt = (d) => parse(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const wday = (d) => parse(d).toLocaleDateString('en-GB', { weekday: 'long' });
+            const added = (c) => new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            /* subject icon + colour, guessed from the class name */
+            const SUBJECTS = [
+                [/math|algebra|calcul|geometr|statist/, '#22d3ee', null],
+                [/physic/, '#a78bfa', '<circle cx="12" cy="12" r="1.8" fill="currentColor"/><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(120 12 12)"/>'],
+                [/chem/, '#2dd4bf', '<path d="M9 3h6M10 3v6l-5.5 9.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3"/><path d="M7.5 15h9"/>'],
+                [/english|literature|hindi|language|sanskrit/, '#38bdf8', '<path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2zM12 6v14"/>'],
+                [/histor|geograph|civics|social|politic/, '#f59e0b', '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>'],
+                [/physical|\bpe\b|sport|fitness|games/, '#ec4899', '<path d="M3 12h4l3-8 4 16 3-8h4"/>'],
+                [/comput|informatic|\bip\b|program|coding|\bcs\b/, '#818cf8', '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>'],
+                [/bio|botany|zoology|science|environment/, '#34d399', '<path d="M5 19c0-9 5-14 14-14 0 9-5 14-14 14zM5 19 13 11"/>']
+            ];
+            const PALETTE = ['#22d3ee', '#a78bfa', '#2dd4bf', '#38bdf8', '#f59e0b', '#ec4899'];
+            const subjectTile = (name) => {
+                const n = name.toLowerCase(), hit = SUBJECTS.find(([re]) => re.test(n));
+                const color = hit ? hit[1] : PALETTE[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % PALETTE.length];
+                const inner = hit ? (hit[2] ? N.svg(hit[2], 'h-7 w-7') : '<span class="text-3xl font-semibold leading-none">Σ</span>') : N.icon('cap', 'h-7 w-7');
+                return `<span class="tile tile-sm" style="--c:${color}" aria-hidden="true">${inner}</span>`;
+            };
+            const badge = (s) => s === 'completed'
+                ? `<span class="badge badge-done sbadge">${N.icon('check', 'h-5 w-5')}Completed</span>`
+                : `<span class="badge badge-pending sbadge">${N.icon('clock', 'h-5 w-5')}Not Completed</span>`;
+
+            const rowHtml = (c) => {
+                const id = esc(c.id), nm = esc(c.name);
+                return `<li class="trow" data-id="${id}">
+                    <div class="c-sub flex min-w-0 items-center gap-4">${subjectTile(c.name)}<div class="min-w-0"><p class="truncate text-lg font-semibold">${nm}</p><p class="text-slate-400">Added ${added(c)}</p></div></div>
+                    <div class="c-date flex items-center gap-3 text-slate-200">${N.icon('calendar', 'h-6 w-6 flex-none')}<div><p class="font-medium">${fmt(c.date)}</p><p class="text-slate-400">${wday(c.date)}</p></div></div>
+                    <div class="c-stat">${badge(c.status)}</div>
+                    <div class="c-act relative flex items-center gap-2">
+                        <button type="button" class="act" data-act="view" aria-label="View ${nm}">${N.icon('eye')}</button>
+                        <button type="button" class="act" data-act="edit" aria-label="Edit ${nm}">${N.icon('pencil')}</button>
+                        <button type="button" class="act" data-act="delete" aria-label="Delete ${nm}">${N.icon('trash')}</button>
+                        <button type="button" class="act" data-act="more" aria-haspopup="menu" aria-label="More actions for ${nm}">${N.icon('dots')}</button>
+                        <div class="menu hidden" role="menu"><button type="button" role="menuitem" data-act="toggle">Mark as ${c.status === 'completed' ? 'Not Completed' : 'Completed'}</button></div>
+                    </div>
+                </li>`;
+            };
+
+            const render = () => {
+                const all = store.all(), counts = store.counts(), q = state.q.toLowerCase();
+                $('#filters').innerHTML = [['all', 'All', counts.all, 'pill-blue'], ['completed', 'Completed', counts.completed, 'pill-green'], ['notcompleted', 'Not Completed', counts.notcompleted, 'pill-amber']]
+                    .map(([k, l, n, p]) => `<button type="button" class="chip-f ${state.filter === k ? 'on' : ''}" data-filter="${k}" aria-pressed="${state.filter === k}">${l}<span class="pill ${p}">${n}</span></button>`).join('');
+
+                const list = all
+                    .filter((c) => (state.filter === 'all' || c.status === state.filter) &&
+                        (!q || `${c.name} ${fmt(c.date)} ${wday(c.date)} ${c.status === 'completed' ? 'completed' : 'not completed'}`.toLowerCase().includes(q)))
+                    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+                const pages = Math.max(1, Math.ceil(list.length / PER));
+                state.page = Math.min(state.page, pages);
+                const start = (state.page - 1) * PER, slice = list.slice(start, start + PER);
+                $('#rows').innerHTML = slice.map(rowHtml).join('');
+
+                const empty = $('#empty');
+                empty.hidden = list.length > 0;
+                if (!list.length) {
+                    const none = all.length === 0;
+                    $('#empty-title').textContent = none ? 'No saved classes yet' : 'No classes match';
+                    $('#empty-text').textContent = none ? 'Add your first class on the dashboard and it will show up here.' : 'Try a different filter or search term.';
+                    $('#empty-cta').hidden = !none;
+                }
+                $('.thead').hidden = !list.length;
+                $('#showing').textContent = list.length ? `Showing ${start + 1} – ${start + slice.length} of ${list.length} saved ${list.length === 1 ? 'class' : 'classes'}` : '';
+
+                const nums = [...new Set([1, state.page - 1, state.page, state.page + 1, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+                let html = '', prev = 0;
+                if (list.length) {
+                    html += `<button type="button" class="pg" data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous page">${N.icon('left', 'h-5 w-5')}</button>`;
+                    nums.forEach((n) => { if (n - prev > 1) html += '<span class="pg border-0 bg-transparent">…</span>'; html += `<button type="button" class="pg ${n === state.page ? 'on' : ''}" data-page="${n}" ${n === state.page ? 'aria-current="page"' : ''}>${n}</button>`; prev = n; });
+                    html += `<button type="button" class="pg" data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''} aria-label="Next page">${N.icon('right', 'h-5 w-5')}</button>`;
+                }
+                $('#pager').innerHTML = html;
+            };
+
+            /* filters, pagination, search */
+            $('#filters').addEventListener('click', (e) => { const b = e.target.closest('[data-filter]'); if (b) { state.filter = b.dataset.filter; state.page = 1; render(); } });
+            $('#pager').addEventListener('click', (e) => { const b = e.target.closest('[data-page]'); if (b && !b.disabled) { state.page = Number(b.dataset.page); render(); } });
+            window.addEventListener('nct:search', (e) => { state.q = e.detail; state.page = 1; render(); });
+
+            /* row actions */
+            const dlg = $('#dlg'), dform = $('#dlg-form');
+            let editingId = null;
+            const setErr = (id, msg) => { $('#d-err-' + id).textContent = msg; $('#d-f-' + id).classList.toggle('bad', Boolean(msg)); };
+            const openDialog = (c, editable) => {
+                editingId = c.id;
+                $('#dlg-title').textContent = editable ? 'Edit class' : 'Class details';
+                $('#d-name').value = c.name; $('#d-date').value = c.date;
+                dform.querySelectorAll('input[name="d-status"]').forEach((r) => { r.checked = r.value === c.status; });
+                dform.querySelectorAll('input').forEach((i) => { i.disabled = !editable; });
+                $('#d-save').hidden = !editable;
+                setErr('name', ''); setErr('date', '');
+                dlg.showModal();
+            };
+            $('#d-close').addEventListener('click', () => dlg.close());
+            dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+            dform.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = $('#d-name').value.trim(), date = $('#d-date').value;
+                const status = dform.querySelector('input[name="d-status"]:checked')?.value || 'completed';
+                setErr('name', name ? '' : 'Enter the class name.'); setErr('date', date ? '' : 'Pick a date.');
+                if (!name || !date) return;
+                if (store.update(editingId, { name, date, status })) { dlg.close(); render(); refresh(); N.toast('Class updated.'); }
+            });
+
+            const closeMenus = () => document.querySelectorAll('#rows .menu').forEach((m) => m.classList.add('hidden'));
+            document.addEventListener('click', (e) => { if (!e.target.closest('.c-act')) closeMenus(); });
+            $('#rows').addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-act]');
+                if (!btn) return;
+                const id = btn.closest('.trow').dataset.id, c = store.all().find((x) => x.id === id), act = btn.dataset.act;
+                if (!c) return;
+                if (act === 'more') { const m = btn.parentElement.querySelector('.menu'), open = m.classList.contains('hidden'); closeMenus(); m.classList.toggle('hidden', !open); return; }
+                closeMenus();
+                if (act === 'view') openDialog(c, false);
+                else if (act === 'edit') openDialog(c, true);
+                else if (act === 'toggle') { if (store.update(id, { status: c.status === 'completed' ? 'notcompleted' : 'completed' })) { render(); refresh(); } }
+                else if (act === 'delete' && confirm(`Delete “${c.name}”? This can’t be undone.`)) { if (store.remove(id)) { render(); refresh(); N.toast('Class deleted.'); } }
+            });
+
+            render();
+        });
+    </script>
+</body>
+</html>
